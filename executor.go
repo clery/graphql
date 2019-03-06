@@ -941,9 +941,6 @@ func defaultResolveStruct(sourceVal reflect.Value, fieldName string) (interface{
 		if strings.EqualFold(typeField.Name, fieldName) {
 			return valueField.Interface(), nil
 		}
-		if typeField.Anonymous && typeField.Type.Kind() == reflect.Struct {
-			return defaultResolveStruct(valueField, fieldName)
-		}
 		tag := typeField.Tag
 		checkTag := func(tagName string) bool {
 			t := tag.Get(tagName)
@@ -958,8 +955,16 @@ func defaultResolveStruct(sourceVal reflect.Value, fieldName string) (interface{
 		}
 		if checkTag("json") || checkTag("graphql") {
 			return valueField.Interface(), nil
-		} else {
-			continue
+		}
+	}
+	for i := 0; i < sourceVal.NumField(); i++ {
+		valueField := sourceVal.Field(i)
+		typeField := sourceVal.Type().Field(i)
+		if typeField.Anonymous && typeField.Type.Kind() == reflect.Struct {
+			ret, err := defaultResolveStruct(valueField, fieldName)
+			if ret != nil || err != nil {
+				return ret, err
+			}
 		}
 	}
 	return nil, nil
